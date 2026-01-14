@@ -70,14 +70,17 @@
 |---|---|---|
 |Action keyword|Ключевое слово запуска плагина|`ai`|
 |Provider|Провайдер LLM: `openai`, `yandex_native`, `yandex_openai`|`openai`|
+|Save settings|Кнопка принудительного сохранения/обновления настроек|—|
 |OpenAI API Key|Ключ OpenAI|`(пусто)`|
 |Model|Модель OpenAI|`gpt-5-mini`|
+|OpenAI request mode|Тип запроса OpenAI: `sync` или `async`|`sync`|
 |API Endpoint|Endpoint OpenAI (или OpenAI-совместимый)|`https://api.openai.com/v1/chat/completions`|
 |Yandex auth type|Тип авторизации: `api_key` или `iam_token`|`api_key`|
 |Yandex API Key|API Key из Yandex Cloud|`(пусто)`|
 |Yandex IAM Token|IAM токен из Yandex Cloud|`(пусто)`|
 |Yandex Folder ID|ID каталога в Yandex Cloud|`(пусто)`|
 |Yandex model|Модель Яндекса (например `yandexgpt/latest`)|`yandexgpt/latest`|
+|Yandex request mode|Тип запроса Яндекса: `sync` или `async`|`sync`|
 |Yandex native endpoint|Нативный endpoint Foundation Models API|`https://llm.api.cloud.yandex.net/foundationModels/v1/completion`|
 |Yandex OpenAI-compatible endpoint|OpenAI-совместимый endpoint Яндекса|`https://llm.api.cloud.yandex.net/v1/chat/completions`|
 |Prompt stop|Стоп-символы запроса|`||`|

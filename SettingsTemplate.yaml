@@ -8,6 +8,13 @@ body:
         - openai
         - yandex_native
         - yandex_openai
+  - type: button
+    attributes:
+      name: save_settings
+      label: "Сохранить настройки:"
+      text: "Сохранить"
+      actionKeyword: save_settings
+      actionKeywordIsQuery: true
   - type: passwordBox
     attributes:
       name: api_key
@@ -33,6 +40,14 @@ body:
         - gpt-4-turbo
         - gpt-4
         - gpt-3.5-turbo
+  - type: dropdown
+    attributes:
+      name: openai_request_mode
+      label: "OpenAI request mode:"
+      defaultValue: sync
+      options:
+        - sync
+        - async
   - type: dropdown
     attributes:
       name: yandex_auth_type
@@ -65,6 +80,14 @@ body:
       label: "Yandex model:"
       defaultValue: "yandexgpt/latest"
       description: "Например: yandexgpt/latest или yandexgpt-lite/latest. Актуальные линейки: Alice AI LLM, YandexGPT Pro 5.1, YandexGPT Pro 5, YandexGPT Lite, Qwen3 235B, gpt-oss-120b, gpt-oss-20b, Gemma3 27B."
+  - type: dropdown
+    attributes:
+      name: yandex_request_mode
+      label: "Yandex request mode:"
+      defaultValue: sync
+      options:
+        - sync
+        - async
   - type: input
     attributes:
       name: prompt_stop
