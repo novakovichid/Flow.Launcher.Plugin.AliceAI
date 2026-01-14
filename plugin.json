@@ -1,13 +1,13 @@
 {
     "ID": "df432fe0-9ff7-4ba1-b0fd-5ffd26efbf86",
     "ActionKeyword": "ai",
-    "Name": "ChatGPT",
+    "Name": "AliceAI",
     "Description": "Plugin to use OpenAI and Yandex LLM APIs in Flow Launcher",
     "Author": "MichielvanBeers",
     "Version": "1.4.1",
     "Language": "python",
-    "Website": "https://github.com/MichielvanBeers/Flow.Launcher.Plugin.ChatGPT",
-    "IcoPath": "Images\\app.png",
+    "Website": "https://github.com/MichielvanBeers/Flow.Launcher.Plugin.AliceAI",
+    "IcoPath": "Images\\logo.png",
     "ExecuteFileName": "main.py",
     "Settings": {
         "api_endpoint": {
