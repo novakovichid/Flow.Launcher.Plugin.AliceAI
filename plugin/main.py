@@ -19,6 +19,19 @@ PROXIES = {
 
 class AliceAI(Flox):
     def __init__(self):
+        self._load_settings()
+
+        try:
+            self.csv_file = open("system_messages.csv", encoding="utf-8", mode="r")
+            reader = csv.DictReader(self.csv_file, delimiter=";")
+            self.prompts = list(reader)
+            [logging.debug(f"Found prompt: {row}") for row in self.prompts]
+
+        except FileNotFoundError:
+            self.prompts = None
+            logging.error("Unable to open system_messages.csv")
+
+    def _load_settings(self) -> None:
         self.provider = (self.settings.get("provider") or "openai").lower()
         self.api_key = self.settings.get("api_key")
         self.model = self.settings.get("model") or "gpt-5-mini"
@@ -30,6 +43,12 @@ class AliceAI(Flox):
             self.settings.get("api_endpoint")
             or "https://api.openai.com/v1/chat/completions"
         )
+        self.openai_request_mode = (
+            self.settings.get("openai_request_mode") or "sync"
+        ).lower()
+        self.yandex_request_mode = (
+            self.settings.get("yandex_request_mode") or "sync"
+        ).lower()
         self.yandex_auth_type = (
             self.settings.get("yandex_auth_type") or "api_key"
         ).lower()
@@ -47,17 +66,14 @@ class AliceAI(Flox):
         )
         self.logger_level(self.log_level)
 
-        try:
-            self.csv_file = open("system_messages.csv", encoding="utf-8", mode="r")
-            reader = csv.DictReader(self.csv_file, delimiter=";")
-            self.prompts = list(reader)
-            [logging.debug(f"Found prompt: {row}") for row in self.prompts]
-
-        except FileNotFoundError:
-            self.prompts = None
-            logging.error("Unable to open system_messages.csv")
-
     def query(self, query: str) -> None:
+        self._load_settings()
+        if query.strip().lower() == "save_settings":
+            self.add_item(
+                title="Settings saved",
+                subtitle="Настройки обновлены",
+            )
+            return
         if not self._ensure_auth():
             return
         if self.prompts is None:
@@ -124,28 +140,33 @@ class AliceAI(Flox):
         url = self.api_endpoint
 
         headers = self._openai_headers()
-        body = self._openai_body(prompt, system_message, self.model)
+        stream = self.openai_request_mode == "async"
+        body = self._openai_body(prompt, system_message, self.model, stream)
 
-        return self._send_request(url, headers, body, "OpenAI")
+        return self._send_request(url, headers, body, "OpenAI", stream)
 
     def _send_yandex_openai_prompt(
         self, prompt: str, system_message: str
     ) -> Tuple[str, datetime, datetime]:
         url = self.yandex_openai_endpoint
         headers = self._yandex_headers()
-        body = self._openai_body(prompt, system_message, self.yandex_model)
+        stream = self.yandex_request_mode == "async"
+        body = self._openai_body(prompt, system_message, self.yandex_model, stream)
 
-        return self._send_request(url, headers, body, "Yandex OpenAI-compatible")
+        return self._send_request(
+            url, headers, body, "Yandex OpenAI-compatible", stream
+        )
 
     def _send_yandex_native_prompt(
         self, prompt: str, system_message: str
     ) -> Tuple[str, datetime, datetime]:
         url = self.yandex_native_endpoint
         headers = self._yandex_headers()
+        stream = self.yandex_request_mode == "async"
         body = {
             "modelUri": f"gpt://{self.yandex_folder_id}/{self.yandex_model}",
             "completionOptions": {
-                "stream": False,
+                "stream": stream,
                 "temperature": 0.6,
                 "maxTokens": 2000,
             },
@@ -164,6 +185,7 @@ class AliceAI(Flox):
                 headers=headers,
                 data=json.dumps(body),
                 proxies=PROXIES,
+                stream=stream,
             )
         except UnicodeEncodeError as e:
             logging.error(f"UnicodeEncodeError: {e}")
@@ -172,26 +194,34 @@ class AliceAI(Flox):
         logging.debug(f"Response: {response}")
         answer_timestamp = datetime.now()
         result = ""
-        response_json = response.json()
-        if response.ok:
-            alternatives = response_json.get("result", {}).get("alternatives", [])
-            for entry in alternatives:
-                message = entry.get("message", {})
-                result += message.get("text", "")
+        if stream:
+            result = self._consume_yandex_stream(response)
         else:
-            self._handle_error(response, response_json, "Yandex native")
+            response_json = response.json()
+            if response.ok:
+                alternatives = response_json.get("result", {}).get("alternatives", [])
+                for entry in alternatives:
+                    message = entry.get("message", {})
+                    result += message.get("text", "")
+            else:
+                self._handle_error(response, response_json, "Yandex native")
 
         return result, prompt_timestamp, answer_timestamp
 
     def _send_request(
-        self, url: str, headers: dict, body: dict, provider_label: str
+        self,
+        url: str,
+        headers: dict,
+        body: dict,
+        provider_label: str,
+        stream: bool = False,
     ) -> Tuple[str, datetime, datetime]:
         data = json.dumps(body)
         prompt_timestamp = datetime.now()
         logging.debug(f"Sending request with data: {data}")
         try:
             response = requests.request(
-                "POST", url, headers=headers, data=data, proxies=PROXIES
+                "POST", url, headers=headers, data=data, proxies=PROXIES, stream=stream
             )
         except UnicodeEncodeError as e:
             logging.error(f"UnicodeEncodeError: {e}")
@@ -201,14 +231,68 @@ class AliceAI(Flox):
         answer_timestamp = datetime.now()
 
         result = ""
-        response_json = response.json()
-        if response.ok:
-            for entry in response_json.get("choices", []):
-                message = entry.get("message", {})
-                result += message.get("content", "")
+        if stream:
+            result = self._consume_openai_stream(response)
         else:
-            self._handle_error(response, response_json, provider_label)
+            response_json = response.json()
+            if response.ok:
+                for entry in response_json.get("choices", []):
+                    message = entry.get("message", {})
+                    result += message.get("content", "")
+            else:
+                self._handle_error(response, response_json, provider_label)
         return result, prompt_timestamp, answer_timestamp
+
+    def _consume_openai_stream(self, response) -> str:
+        if not response.ok:
+            response_json = response.json()
+            self._handle_error(response, response_json, "Streaming request")
+            return ""
+        result = ""
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            line = line.strip()
+            if line.startswith("data:"):
+                line = line[len("data:") :].strip()
+            if not line or line == "[DONE]":
+                break
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            for entry in payload.get("choices", []):
+                delta = entry.get("delta", {})
+                if delta:
+                    result += delta.get("content", "")
+                else:
+                    message = entry.get("message", {})
+                    result += message.get("content", "")
+        return result
+
+    def _consume_yandex_stream(self, response) -> str:
+        if not response.ok:
+            response_json = response.json()
+            self._handle_error(response, response_json, "Yandex native streaming")
+            return ""
+        result = ""
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            line = line.strip()
+            if line.startswith("data:"):
+                line = line[len("data:") :].strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            alternatives = payload.get("result", {}).get("alternatives", [])
+            for entry in alternatives:
+                message = entry.get("message", {})
+                result += message.get("text", "")
+        return result
 
     def _handle_error(self, response, response_json: dict, provider_label: str) -> None:
         error_message = (
@@ -237,7 +321,9 @@ class AliceAI(Flox):
             headers["x-folder-id"] = self.yandex_folder_id
         return headers
 
-    def _openai_body(self, prompt: str, system_message: str, model: str) -> dict:
+    def _openai_body(
+        self, prompt: str, system_message: str, model: str, stream: bool
+    ) -> dict:
         return {
             "model": model,
             "messages": [
@@ -247,6 +333,7 @@ class AliceAI(Flox):
                 },
                 {"role": "user", "content": prompt},
             ],
+            "stream": stream,
         }
 
     def _yandex_auth_prefix(self) -> str:
