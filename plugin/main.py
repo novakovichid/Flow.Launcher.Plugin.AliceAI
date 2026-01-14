@@ -19,13 +19,32 @@ PROXIES = {
 
 class ChatGPT(Flox):
     def __init__(self):
+        self.provider = (self.settings.get("provider") or "openai").lower()
         self.api_key = self.settings.get("api_key")
-        self.model = self.settings.get("model")
+        self.model = self.settings.get("model") or "gpt-5-mini"
         self.prompt_stop = self.settings.get("prompt_stop")
         self.default_system_prompt = self.settings.get("default_prompt")
         self.save_conversation_setting = self.settings.get("save_conversation")
         self.log_level = self.settings.get("log_level")
-        self.api_endpoint = self.settings.get("api_endpoint")
+        self.api_endpoint = (
+            self.settings.get("api_endpoint")
+            or "https://api.openai.com/v1/chat/completions"
+        )
+        self.yandex_auth_type = (
+            self.settings.get("yandex_auth_type") or "api_key"
+        ).lower()
+        self.yandex_api_key = self.settings.get("yandex_api_key")
+        self.yandex_iam_token = self.settings.get("yandex_iam_token")
+        self.yandex_folder_id = self.settings.get("yandex_folder_id")
+        self.yandex_model = self.settings.get("yandex_model") or "yandexgpt/latest"
+        self.yandex_native_endpoint = (
+            self.settings.get("yandex_native_endpoint")
+            or "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+        )
+        self.yandex_openai_endpoint = (
+            self.settings.get("yandex_openai_endpoint")
+            or "https://llm.api.cloud.yandex.net/v1/chat/completions"
+        )
         self.logger_level(self.log_level)
 
         try:
@@ -39,13 +58,7 @@ class ChatGPT(Flox):
             logging.error("Unable to open system_messages.csv")
 
     def query(self, query: str) -> None:
-        if not self.api_key:
-            self.add_item(
-                title="Unable to load the API key",
-                subtitle=(
-                    "Please make sure you've added a valid API key in the settings"
-                ),
-            )
+        if not self._ensure_auth():
             return
         if self.prompts is None:
             self.add_item(
@@ -89,7 +102,7 @@ class ChatGPT(Flox):
         else:
             self.add_item(
                 title=f"Type your prompt and end with {self.prompt_stop}",
-                subtitle=f"Current model: {self.model}",
+                subtitle=f"Current model: {self._current_model_label()}",
             )
         return
 
@@ -97,28 +110,83 @@ class ChatGPT(Flox):
         self, prompt: str, system_message: str
     ) -> Tuple[str, datetime, datetime]:
         """
-        Query the OpenAI end-point
+        Query the selected provider end-point
         """
+        if self.provider == "openai":
+            return self._send_openai_prompt(prompt, system_message)
+        if self.provider == "yandex_openai":
+            return self._send_yandex_openai_prompt(prompt, system_message)
+        return self._send_yandex_native_prompt(prompt, system_message)
+
+    def _send_openai_prompt(
+        self, prompt: str, system_message: str
+    ) -> Tuple[str, datetime, datetime]:
         url = self.api_endpoint
 
-        headers = {
-            "Authorization": "Bearer " + self.api_key,
-            "Content-Type": "application/json",
-        }
+        headers = self._openai_headers()
+        body = self._openai_body(prompt, system_message, self.model)
 
+        return self._send_request(url, headers, body, "OpenAI")
+
+    def _send_yandex_openai_prompt(
+        self, prompt: str, system_message: str
+    ) -> Tuple[str, datetime, datetime]:
+        url = self.yandex_openai_endpoint
+        headers = self._yandex_headers()
+        body = self._openai_body(prompt, system_message, self.yandex_model)
+
+        return self._send_request(url, headers, body, "Yandex OpenAI-compatible")
+
+    def _send_yandex_native_prompt(
+        self, prompt: str, system_message: str
+    ) -> Tuple[str, datetime, datetime]:
+        url = self.yandex_native_endpoint
+        headers = self._yandex_headers()
         body = {
-            "model": self.model,
+            "modelUri": f"gpt://{self.yandex_folder_id}/{self.yandex_model}",
+            "completionOptions": {
+                "stream": False,
+                "temperature": 0.6,
+                "maxTokens": 2000,
+            },
             "messages": [
-                {
-                    "role": "system",
-                    "content": system_message,
-                },
-                {"role": "user", "content": prompt},
+                {"role": "system", "text": system_message},
+                {"role": "user", "text": prompt},
             ],
         }
 
-        data = json.dumps(body)
+        prompt_timestamp = datetime.now()
+        logging.debug(f"Sending Yandex native request with data: {body}")
+        try:
+            response = requests.request(
+                "POST",
+                url,
+                headers=headers,
+                data=json.dumps(body),
+                proxies=PROXIES,
+            )
+        except UnicodeEncodeError as e:
+            logging.error(f"UnicodeEncodeError: {e}")
+            return "", prompt_timestamp, datetime.now()
 
+        logging.debug(f"Response: {response}")
+        answer_timestamp = datetime.now()
+        result = ""
+        response_json = response.json()
+        if response.ok:
+            alternatives = response_json.get("result", {}).get("alternatives", [])
+            for entry in alternatives:
+                message = entry.get("message", {})
+                result += message.get("text", "")
+        else:
+            self._handle_error(response, response_json, "Yandex native")
+
+        return result, prompt_timestamp, answer_timestamp
+
+    def _send_request(
+        self, url: str, headers: dict, body: dict, provider_label: str
+    ) -> Tuple[str, datetime, datetime]:
+        data = json.dumps(body)
         prompt_timestamp = datetime.now()
         logging.debug(f"Sending request with data: {data}")
         try:
@@ -135,16 +203,101 @@ class ChatGPT(Flox):
         result = ""
         response_json = response.json()
         if response.ok:
-            for entry in response_json["choices"]:
-                result += entry["message"]["content"]
+            for entry in response_json.get("choices", []):
+                message = entry.get("message", {})
+                result += message.get("content", "")
         else:
-            self.add_item(
-                title="An error occurred", subtitle=response_json["error"]["message"]
-            )
-            logging.error(
-                f"API returned {response.status_code} with message: {response_json}"
-            )
+            self._handle_error(response, response_json, provider_label)
         return result, prompt_timestamp, answer_timestamp
+
+    def _handle_error(self, response, response_json: dict, provider_label: str) -> None:
+        error_message = (
+            response_json.get("error", {}).get("message")
+            or response_json.get("message")
+            or "Unknown error"
+        )
+        self.add_item(title="An error occurred", subtitle=error_message)
+        logging.error(
+            f"{provider_label} API returned {response.status_code} with message: {response_json}"
+        )
+
+    def _openai_headers(self) -> dict:
+        return {
+            "Authorization": "Bearer " + self.api_key,
+            "Content-Type": "application/json",
+        }
+
+    def _yandex_headers(self) -> dict:
+        token = self._yandex_token()
+        headers = {
+            "Authorization": f"{self._yandex_auth_prefix()} {token}",
+            "Content-Type": "application/json",
+        }
+        if self.yandex_folder_id:
+            headers["x-folder-id"] = self.yandex_folder_id
+        return headers
+
+    def _openai_body(self, prompt: str, system_message: str, model: str) -> dict:
+        return {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {"role": "user", "content": prompt},
+            ],
+        }
+
+    def _yandex_auth_prefix(self) -> str:
+        return "Api-Key" if self.yandex_auth_type == "api_key" else "Bearer"
+
+    def _yandex_token(self) -> str:
+        if self.yandex_auth_type == "iam_token":
+            return self.yandex_iam_token or ""
+        return self.yandex_api_key or ""
+
+    def _current_model_label(self) -> str:
+        if self.provider == "openai":
+            return self.model
+        if self.provider == "yandex_openai":
+            return f"{self.yandex_model} (OpenAI-compatible)"
+        return f"{self.yandex_model} (native)"
+
+    def _ensure_auth(self) -> bool:
+        if self.provider == "openai":
+            if not self.api_key:
+                self.add_item(
+                    title="Unable to load the OpenAI API key",
+                    subtitle=(
+                        "Please make sure you've added a valid OpenAI API key in the settings"
+                    ),
+                )
+                return False
+            return True
+
+        token = self._yandex_token()
+        if not token:
+            self.add_item(
+                title="Unable to load the Yandex token",
+                subtitle=(
+                    "Please make sure you've added a valid Yandex API key or IAM token"
+                ),
+            )
+            return False
+        if self.provider == "yandex_native" and not self.yandex_folder_id:
+            self.add_item(
+                title="Missing Yandex Folder ID",
+                subtitle="Please provide a folder ID for the Yandex native API",
+            )
+            return False
+        if not self.yandex_model:
+            self.add_item(
+                title="Missing Yandex model",
+                subtitle="Please select or enter a Yandex model in the settings",
+            )
+            return False
+        return True
 
     def save_conversation(
         self,

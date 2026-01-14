@@ -1,3 +1,0 @@
-## This file will be used as output for the prompts ##
-## Note that everytime you select Open in Notepad,  ##
-## the content of this file be overwritten.         ##

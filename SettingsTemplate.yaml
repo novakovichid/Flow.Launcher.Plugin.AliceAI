@@ -1,24 +1,70 @@
 body:
+  - type: dropdown
+    attributes:
+      name: provider
+      label: "Провайдер LLM:"
+      defaultValue: openai
+      options:
+        - openai
+        - yandex_native
+        - yandex_openai
   - type: passwordBox
     attributes:
       name: api_key
-      label: "API Key:"
+      label: "OpenAI API Key:"
       defaultValue: ""
-      description: OpenAI API Key
+      description: Ключ доступа OpenAI
   - type: dropdown
     attributes:
       name: model
       label: "Model:"
-      defaultValue: gpt-3.5-turbo
+      defaultValue: gpt-5-mini
       options:
-        - gpt-3.5-turbo
-        - gpt-4
-        - gpt-4-0125-preview
-        - gpt-4-turbo-preview
-        - gpt-4-1106-preview
-        - gpt-4-0613
+        - gpt-5.2
+        - gpt-5.2-pro
+        - gpt-5
+        - gpt-5-mini
+        - gpt-5-nano
         - gpt-4o
         - gpt-4o-mini
+        - gpt-4.1
+        - gpt-4.1-mini
+        - gpt-4.1-nano
+        - gpt-4-turbo
+        - gpt-4
+        - gpt-3.5-turbo
+  - type: dropdown
+    attributes:
+      name: yandex_auth_type
+      label: "Тип авторизации Яндекса:"
+      defaultValue: api_key
+      options:
+        - api_key
+        - iam_token
+  - type: passwordBox
+    attributes:
+      name: yandex_api_key
+      label: "Yandex API Key:"
+      defaultValue: ""
+      description: API Key из Yandex Cloud
+  - type: passwordBox
+    attributes:
+      name: yandex_iam_token
+      label: "Yandex IAM Token:"
+      defaultValue: ""
+      description: IAM токен из Yandex Cloud
+  - type: input
+    attributes:
+      name: yandex_folder_id
+      label: "Yandex Folder ID:"
+      defaultValue: ""
+      description: ID каталога (folder) в Yandex Cloud
+  - type: input
+    attributes:
+      name: yandex_model
+      label: "Yandex model:"
+      defaultValue: "yandexgpt/latest"
+      description: "Например: yandexgpt/latest или yandexgpt-lite/latest. Актуальные линейки: Alice AI LLM, YandexGPT Pro 5.1, YandexGPT Pro 5, YandexGPT Lite, Qwen3 235B, gpt-oss-120b, gpt-oss-20b, Gemma3 27B."
   - type: input
     attributes:
       name: prompt_stop
@@ -53,4 +99,16 @@ body:
       name: api_endpoint
       label: "API Endpoint:"
       defaultValue: "https://api.openai.com/v1/chat/completions"
-      description: Custom OpenAI API endpoint
+      description: OpenAI endpoint (или любой OpenAI-совместимый)
+  - type: input
+    attributes:
+      name: yandex_native_endpoint
+      label: "Yandex native endpoint:"
+      defaultValue: "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+      description: Нативный эндпоинт Foundation Models API
+  - type: input
+    attributes:
+      name: yandex_openai_endpoint
+      label: "Yandex OpenAI-compatible endpoint:"
+      defaultValue: "https://llm.api.cloud.yandex.net/v1/chat/completions"
+      description: OpenAI-совместимый эндпоинт Яндекса
