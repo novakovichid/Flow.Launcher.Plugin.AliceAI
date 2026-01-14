@@ -70,7 +70,6 @@
 |---|---|---|
 |Action keyword|Ключевое слово запуска плагина|`ai`|
 |Provider|Провайдер LLM: `openai`, `yandex_native`, `yandex_openai`|`openai`|
-|Save settings|Кнопка принудительного сохранения/обновления настроек|—|
 |OpenAI API Key|Ключ OpenAI|`(пусто)`|
 |Model|Модель OpenAI|`gpt-5-mini`|
 |OpenAI request mode|Тип запроса OpenAI: `sync` или `async`|`sync`|

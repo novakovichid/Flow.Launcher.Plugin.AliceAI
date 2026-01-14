@@ -8,13 +8,6 @@ body:
         - openai
         - yandex_native
         - yandex_openai
-  - type: button
-    attributes:
-      name: save_settings
-      label: "Сохранить настройки:"
-      text: "Сохранить"
-      actionKeyword: save_settings
-      actionKeywordIsQuery: true
   - type: passwordBox
     attributes:
       name: api_key

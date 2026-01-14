@@ -68,12 +68,6 @@ class AliceAI(Flox):
 
     def query(self, query: str) -> None:
         self._load_settings()
-        if query.strip().lower() == "save_settings":
-            self.add_item(
-                title="Settings saved",
-                subtitle="Настройки обновлены",
-            )
-            return
         if not self._ensure_auth():
             return
         if self.prompts is None:
