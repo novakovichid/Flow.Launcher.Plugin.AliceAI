@@ -1,7 +1,7 @@
 # Flow Launcher LLM Plugin (OpenAI + Yandex)
 Этот плагин позволяет использовать модели OpenAI и Яндекс (YandexGPT) в [Flow Launcher](https://www.flowlauncher.com/).
 
-![Demo video of the Flow Launcher ChatGPT Plugin](https://i.imgur.com/WQwNY7y.gif)
+![Demo video of the Flow Launcher AliceAI Plugin](https://i.imgur.com/WQwNY7y.gif)
 
 ## Возможности
 - 🔌 Поддержка OpenAI и Yandex Cloud Foundation Models
@@ -29,10 +29,10 @@
 1. Установите [Flow Launcher](https://www.flowlauncher.com/).
 2. Откройте Flow Launcher и введите `Settings`.
 3. Перейдите в модуль `Plugin Store`.
-4. Найдите `ChatGPT`.
+4. Найдите `AliceAI`.
 5. Нажмите `Install`.
 6. Flow Launcher перезапустится автоматически (или сделайте это вручную).
-7. Откройте `Plugins` -> `ChatGPT`.
+7. Откройте `Plugins` -> `AliceAI`.
 8. Заполните нужные настройки (см. ниже).
 9. Выполните команду `Save Settings` в Flow Launcher.
 
@@ -56,7 +56,7 @@
 ## Добавление своих системных подсказок
 1. Откройте Flow Launcher.
 2. Введите `Settings`.
-3. Перейдите в `Plugins -> ChatGPT`.
+3. Перейдите в `Plugins -> AliceAI`.
 4. Нажмите иконку папки.
 5. Откройте `system_messages.csv`.
 6. В первом столбце укажите ключевое слово (без пробелов).

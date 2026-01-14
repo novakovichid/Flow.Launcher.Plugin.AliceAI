@@ -17,7 +17,7 @@ PROXIES = {
 }
 
 
-class ChatGPT(Flox):
+class AliceAI(Flox):
     def __init__(self):
         self.provider = (self.settings.get("provider") or "openai").lower()
         self.api_key = self.settings.get("api_key")
@@ -310,7 +310,7 @@ class ChatGPT(Flox):
         filename = f"Conversations '{keyword}' keyword.txt"
         formatted_prompt_timestamp = prompt_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         formatted_answer_timestamp = answer_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        new_content = f"[{formatted_prompt_timestamp}] User: {prompt}\n[{formatted_answer_timestamp}] ChatGPT: {answer}\n\n"  # noqa: E501
+        new_content = f"[{formatted_prompt_timestamp}] User: {prompt}\n[{formatted_answer_timestamp}] AliceAI: {answer}\n\n"  # noqa: E501
 
         if os.path.exists(filename):
             try:
@@ -406,4 +406,4 @@ class ChatGPT(Flox):
 
 
 if __name__ == "__main__":
-    ChatGPT()
+    AliceAI()
