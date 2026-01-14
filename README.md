@@ -78,7 +78,9 @@
 |Yandex API Key|API Key из Yandex Cloud|`(пусто)`|
 |Yandex IAM Token|IAM токен из Yandex Cloud|`(пусто)`|
 |Yandex Folder ID|ID каталога в Yandex Cloud|`(пусто)`|
-|Yandex model|Модель Яндекса (например `yandexgpt/latest`)|`yandexgpt/latest`|
+|Yandex model (preset)|Готовые варианты моделей Яндекса (dropdown)|`yandexgpt/latest`|
+|Yandex model (legacy/manual)|Модель Яндекса: идентификатор (`yandexgpt/latest`) или полный URI (`gpt://<folder-id>/<model>`), используется если preset пустой|`yandexgpt/latest`|
+|Yandex model (custom)|Кастомная модель/URI, используется если preset = `custom`|`(пусто)`|
 |Yandex request mode|Тип запроса Яндекса: `sync` или `async`|`sync`|
 |Yandex native endpoint|Нативный endpoint Foundation Models API|`https://llm.api.cloud.yandex.net/foundationModels/v1/completion`|
 |Yandex OpenAI-compatible endpoint|OpenAI-совместимый endpoint Яндекса|`https://llm.api.cloud.yandex.net/v1/chat/completions`|
@@ -89,19 +91,22 @@
 
 ## Примечания по моделям
 - OpenAI: добавлены актуальные модели API (семейство GPT-5/5.2, GPT-4o и GPT-4.1). При необходимости используйте кастомный endpoint.
-- Yandex native: формирует `modelUri` в формате `gpt://<folder-id>/<model>` и отправляет сообщения в формате Foundation Models API.
-- Yandex OpenAI-compatible: использует OpenAI-схему запросов и поддерживает `x-folder-id` в заголовке.
+- Yandex native: принимает полный `modelUri` вида `gpt://<folder-id>/<model>` или короткий идентификатор модели (тогда нужен Folder ID).
+- Yandex OpenAI-compatible: отправляет модель как `gpt://<folder-id>/<model>` (если Folder ID заполнен), либо принимает полный URI напрямую.
+- Приоритет выбора модели: preset (если не `custom`) → custom (если задан) → legacy/manual.
 
-### Список актуальных линеек Yandex (для справки)
-Указывайте идентификатор модели из Yandex Cloud, а ниже — названия линеек, которые сейчас доступны по тарифам:
-- Alice AI LLM
-- YandexGPT Pro 5.1
-- YandexGPT Pro 5
-- YandexGPT Lite
-- Qwen3 235B
-- gpt-oss-120b
-- gpt-oss-20b
-- Gemma3 27B
+### Актуальные модели Yandex (идентификаторы)
+Можно указывать короткий идентификатор (с Folder ID) или полный URI `gpt://<folder-id>/<model>`.
+
+Примеры идентификаторов:
+- `aliceai-llm`
+- `yandexgpt/rc` (YandexGPT Pro 5.1)
+- `yandexgpt/latest` (YandexGPT Pro 5)
+- `yandexgpt-lite`
+- `qwen3-235b-a22b-fp8/latest`
+- `gpt-oss-120b/latest`
+- `gpt-oss-20b/latest`
+- `gemma-3-27b-it/latest`
 
 # Backlog
 * Ability to take into account the context of the previous prompts.
