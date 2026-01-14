@@ -56,6 +56,8 @@ class AliceAI(Flox):
         self.yandex_iam_token = self.settings.get("yandex_iam_token")
         self.yandex_folder_id = self.settings.get("yandex_folder_id")
         self.yandex_model = self.settings.get("yandex_model") or "yandexgpt/latest"
+        self.yandex_model_preset = self.settings.get("yandex_model_preset") or ""
+        self.yandex_model_custom = self.settings.get("yandex_model_custom") or ""
         self.yandex_native_endpoint = (
             self.settings.get("yandex_native_endpoint")
             or "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
@@ -145,7 +147,9 @@ class AliceAI(Flox):
         url = self.yandex_openai_endpoint
         headers = self._yandex_headers()
         stream = self.yandex_request_mode == "async"
-        body = self._openai_body(prompt, system_message, self.yandex_model, stream)
+        body = self._openai_body(
+            prompt, system_message, self._yandex_model_value(), stream
+        )
 
         return self._send_request(
             url, headers, body, "Yandex OpenAI-compatible", stream
@@ -157,8 +161,9 @@ class AliceAI(Flox):
         url = self.yandex_native_endpoint
         headers = self._yandex_headers()
         stream = self.yandex_request_mode == "async"
+        model_uri = self._yandex_model_uri()
         body = {
-            "modelUri": f"gpt://{self.yandex_folder_id}/{self.yandex_model}",
+            "modelUri": model_uri,
             "completionOptions": {
                 "stream": stream,
                 "temperature": 0.6,
@@ -270,6 +275,7 @@ class AliceAI(Flox):
             self._handle_error(response, response_json, "Yandex native streaming")
             return ""
         result = ""
+        last_message_text = ""
         for line in response.iter_lines(decode_unicode=True):
             if not line:
                 continue
@@ -285,7 +291,14 @@ class AliceAI(Flox):
             alternatives = payload.get("result", {}).get("alternatives", [])
             for entry in alternatives:
                 message = entry.get("message", {})
-                result += message.get("text", "")
+                message_text = message.get("text", "")
+                if not message_text:
+                    continue
+                if message_text.startswith(last_message_text):
+                    result += message_text[len(last_message_text) :]
+                else:
+                    result += message_text
+                last_message_text = message_text
         return result
 
     def _handle_error(self, response, response_json: dict, provider_label: str) -> None:
@@ -338,12 +351,33 @@ class AliceAI(Flox):
             return self.yandex_iam_token or ""
         return self.yandex_api_key or ""
 
+    def _yandex_model_uri(self) -> str:
+        model = self._yandex_model_raw()
+        if model.startswith("gpt://"):
+            return model
+        if self.yandex_folder_id:
+            return f"gpt://{self.yandex_folder_id}/{model}"
+        return ""
+
+    def _yandex_model_raw(self) -> str:
+        preset = (self.yandex_model_preset or "").strip()
+        custom = (self.yandex_model_custom or "").strip()
+        if preset and preset != "custom":
+            return preset
+        if custom:
+            return custom
+        return (self.yandex_model or "").strip()
+
+    def _yandex_model_value(self) -> str:
+        return self._yandex_model_uri() or self._yandex_model_raw()
+
     def _current_model_label(self) -> str:
         if self.provider == "openai":
             return self.model
+        model_label = self._yandex_model_raw() or self.yandex_model
         if self.provider == "yandex_openai":
-            return f"{self.yandex_model} (OpenAI-compatible)"
-        return f"{self.yandex_model} (native)"
+            return f"{model_label} (OpenAI-compatible)"
+        return f"{model_label} (native)"
 
     def _ensure_auth(self) -> bool:
         if self.provider == "openai":
@@ -366,16 +400,22 @@ class AliceAI(Flox):
                 ),
             )
             return False
-        if self.provider == "yandex_native" and not self.yandex_folder_id:
-            self.add_item(
-                title="Missing Yandex Folder ID",
-                subtitle="Please provide a folder ID for the Yandex native API",
-            )
-            return False
-        if not self.yandex_model:
+        if not self._yandex_model_value():
             self.add_item(
                 title="Missing Yandex model",
                 subtitle="Please select or enter a Yandex model in the settings",
+            )
+            return False
+        if (
+            self.provider in ("yandex_native", "yandex_openai")
+            and not self._yandex_model_uri()
+        ):
+            self.add_item(
+                title="Missing Yandex Folder ID",
+                subtitle=(
+                    "Please provide a folder ID or use a full model URI "
+                    "(gpt://<folder-id>/<model>)"
+                ),
             )
             return False
         return True

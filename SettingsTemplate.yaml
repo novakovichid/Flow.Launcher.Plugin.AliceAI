@@ -67,12 +67,33 @@ body:
       label: "Yandex Folder ID:"
       defaultValue: ""
       description: ID каталога (folder) в Yandex Cloud
+  - type: dropdown
+    attributes:
+      name: yandex_model_preset
+      label: "Yandex model (preset):"
+      defaultValue: yandexgpt/latest
+      options:
+        - yandexgpt/rc
+        - yandexgpt/latest
+        - yandexgpt-lite
+        - aliceai-llm
+        - qwen3-235b-a22b-fp8/latest
+        - gpt-oss-120b/latest
+        - gpt-oss-20b/latest
+        - gemma-3-27b-it/latest
+        - custom
   - type: input
     attributes:
       name: yandex_model
-      label: "Yandex model:"
+      label: "Yandex model (legacy/manual):"
       defaultValue: "yandexgpt/latest"
-      description: "Например: yandexgpt/latest или yandexgpt-lite/latest. Актуальные линейки: Alice AI LLM, YandexGPT Pro 5.1, YandexGPT Pro 5, YandexGPT Lite, Qwen3 235B, gpt-oss-120b, gpt-oss-20b, Gemma3 27B."
+      description: "Используется, если preset пустой. Идентификатор модели или полный URI (gpt://<folder-id>/<model>)."
+  - type: input
+    attributes:
+      name: yandex_model_custom
+      label: "Yandex model (custom):"
+      defaultValue: ""
+      description: "Используется, если выбран preset = custom. Поддерживает идентификатор или полный URI."
   - type: dropdown
     attributes:
       name: yandex_request_mode
