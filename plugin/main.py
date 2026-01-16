@@ -76,6 +76,30 @@ class AliceAI(Flox):
             self.settings.get("yandex_openai_endpoint")
             or "https://llm.api.cloud.yandex.net/v1/chat/completions"
         )
+        self.answer_action_order = self.settings.get("answer_action_order") or (
+            "copy,preview,editor"
+        )
+        self.enable_copy_action = self._parse_bool_setting(
+            self.settings.get("enable_copy_action"), True
+        )
+        self.enable_preview_action = self._parse_bool_setting(
+            self.settings.get("enable_preview_action"), True
+        )
+        self.enable_editor_action = self._parse_bool_setting(
+            self.settings.get("enable_editor_action"), True
+        )
+        self.copy_action_mode = (
+            self.settings.get("copy_action_mode") or "answer_only"
+        ).lower()
+        self.preview_action_mode = (
+            self.settings.get("preview_action_mode") or "answer_only"
+        ).lower()
+        self.editor_action_mode = (
+            self.settings.get("editor_action_mode") or "answer_only"
+        ).lower()
+        self.editor_open_mode = (
+            self.settings.get("editor_open_mode") or "saved_if_available"
+        ).lower()
         self.logger_level(self.log_level)
 
     def query(self, query: str) -> None:
@@ -115,26 +139,10 @@ class AliceAI(Flox):
                 answer = answer.lstrip("\n").lstrip("\n")
                 short_answer = self.ellipsis(answer, 30)
 
-                self.add_item(
-                    title="Copy to clipboard",
-                    subtitle=f"Answer: {short_answer}",
-                    method=self.copy_answer,
-                    parameters=[answer],
-                )
-
-                self.add_item(
-                    title="Preview answer",
-                    subtitle=f"Answer: {short_answer}",
-                    method=self.display_answer,
-                    parameters=[answer],
-                )
-
-                self.add_item(
-                    title="Open in text editor",
-                    subtitle=f"Answer: {short_answer}",
-                    method=self.open_in_editor,
-                    parameters=[filename, answer],
-                )
+                for action in self._build_answer_actions(
+                    prompt, answer, filename, short_answer
+                ):
+                    self.add_item(**action)
 
         else:
             self.add_item(
@@ -646,6 +654,13 @@ class AliceAI(Flox):
             return fallback
         return parsed if parsed > 0 else fallback
 
+    def _parse_bool_setting(self, value, fallback: bool) -> bool:
+        if value is None:
+            return fallback
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in ("true", "1", "yes", "on")
+
     def _normalize_model_option(self, value: str) -> str:
         if not value:
             return value
@@ -696,36 +711,118 @@ class AliceAI(Flox):
         string = string.split("\n", 1)[0]
         return string[: length - 3] + "..." if len(string) > length else string
 
-    def copy_answer(self, answer: str) -> None:
+    def _build_answer_actions(
+        self, prompt: str, answer: str, filename: Optional[str], short_answer: str
+    ) -> list:
+        action_order = self._parse_action_order(self.answer_action_order)
+        action_text = {
+            "copy": self._format_action_text(prompt, answer, self.copy_action_mode),
+            "preview": self._format_action_text(
+                prompt, answer, self.preview_action_mode
+            ),
+            "editor": self._format_action_text(
+                prompt, answer, self.editor_action_mode
+            ),
+        }
+        action_definitions = {
+            "copy": {
+                "title": "Copy to clipboard",
+                "subtitle": f"Answer: {short_answer}",
+                "method": self.copy_answer,
+                "parameters": [action_text["copy"]],
+                "enabled": self.enable_copy_action,
+            },
+            "preview": {
+                "title": "Preview answer",
+                "subtitle": f"Answer: {short_answer}",
+                "method": self.display_answer,
+                "parameters": [action_text["preview"]],
+                "enabled": self.enable_preview_action,
+            },
+            "editor": {
+                "title": "Open in text editor",
+                "subtitle": f"Answer: {short_answer}",
+                "method": self.open_in_editor,
+                "parameters": [
+                    filename,
+                    action_text["editor"],
+                    self.editor_open_mode,
+                ],
+                "enabled": self.enable_editor_action,
+            },
+        }
+        actions = []
+        for action_id in action_order:
+            action = action_definitions.get(action_id)
+            if not action or not action["enabled"]:
+                continue
+            if not action_text.get(action_id):
+                continue
+            action_payload = dict(action)
+            action_payload.pop("enabled", None)
+            actions.append(action_payload)
+        return actions
+
+    def _parse_action_order(self, value: str) -> list:
+        known = ["copy", "preview", "editor"]
+        tokens = [token.strip().lower() for token in (value or "").split(",")]
+        order = []
+        seen = set()
+        for token in tokens:
+            if token and token in known and token not in seen:
+                order.append(token)
+                seen.add(token)
+        for token in known:
+            if token not in seen:
+                order.append(token)
+        return order
+
+    def _format_action_text(
+        self, prompt: str, answer: str, mode: str
+    ) -> str:
+        if not answer:
+            return ""
+        if mode == "prompt_and_answer" and prompt:
+            return f"Prompt:\n{prompt}\n\nAnswer:\n{answer}"
+        return answer
+
+    def copy_answer(self, text: str) -> None:
         """
         Copy answer to the clipboard.
         """
-        pyperclip.copy(answer)
+        if not text:
+            return
+        pyperclip.copy(text)
 
-    def open_in_editor(self, filename: Optional[str], answer: Optional[str]) -> None:
+    def open_in_editor(
+        self,
+        filename: Optional[str],
+        text: Optional[str],
+        open_mode: str = "saved_if_available",
+    ) -> None:
         """
         Open the answer in the default text editor. If no filename is given,
         the conversation will be written to a new text file and opened.
         """
-        if filename:
+        if filename and open_mode == "saved_if_available":
             webbrowser.open(filename)
             return
 
-        if answer:
-            temp_file = "temp_text.txt"
+        if text:
+            temp_file = "temp_answer.txt"
             with open(temp_file, "w", encoding="utf-8") as f:
-                f.write(answer)
+                f.write(text)
             webbrowser.open(temp_file)
             return
 
-    def display_answer(self, answer: str) -> None:
+    def display_answer(self, text: str) -> None:
         """
         Display the answer in a dedicated preview window.
         """
-        if not answer:
+        if not text:
             return
         preview_file = os.path.join(os.getcwd(), "preview_answer.html")
-        escaped_answer = html.escape(answer)
+        escaped_answer = html.escape(text)
         preview_html = f"""<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -758,7 +855,7 @@ class AliceAI(Flox):
                 file.write(preview_html)
         except OSError as error:
             logging.error(f"Failed to write preview file: {error}")
-            self.show_msg("Answer", answer)
+            self.show_msg("Answer", text)
             return
         webbrowser.open(preview_file)
 
