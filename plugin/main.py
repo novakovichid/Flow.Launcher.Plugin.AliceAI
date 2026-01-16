@@ -9,6 +9,7 @@ from flox import Flox  # noqa: E402
 import webbrowser  # noqa: E402
 import requests  # noqa: E402
 import json  # noqa: E402
+import html  # noqa: E402
 import pyperclip  # noqa: E402
 from typing import Tuple, Optional
 
@@ -122,17 +123,17 @@ class AliceAI(Flox):
                 )
 
                 self.add_item(
-                    title="Open in text editor",
-                    subtitle=f"Answer: {short_answer}",
-                    method=self.open_in_editor,
-                    parameters=[filename, answer],
-                )
-
-                self.add_item(
                     title="Preview answer",
                     subtitle=f"Answer: {short_answer}",
                     method=self.display_answer,
                     parameters=[answer],
+                )
+
+                self.add_item(
+                    title="Open in text editor",
+                    subtitle=f"Answer: {short_answer}",
+                    method=self.open_in_editor,
+                    parameters=[filename, answer],
                 )
 
         else:
@@ -307,10 +308,19 @@ class AliceAI(Flox):
 
             response_json = response.json()
             if response_json.get("done"):
+                if response_json.get("error"):
+                    self._handle_error(
+                        response, response_json, "Yandex native async"
+                    )
+                    return "", prompt_timestamp, datetime.now()
                 answer_timestamp = datetime.now()
                 response_body = response_json.get("response", {})
                 result = ""
-                alternatives = response_body.get("result", {}).get("alternatives", [])
+                alternatives = response_body.get("alternatives")
+                if alternatives is None:
+                    alternatives = response_body.get("result", {}).get(
+                        "alternatives", []
+                    )
                 for entry in alternatives:
                     message = entry.get("message", {})
                     result += message.get("text", "")
@@ -710,9 +720,47 @@ class AliceAI(Flox):
 
     def display_answer(self, answer: str) -> None:
         """
-        Display the answer in a modal dialog.
+        Display the answer in a dedicated preview window.
         """
-        self.show_msg("Answer", answer)
+        if not answer:
+            return
+        preview_file = os.path.join(os.getcwd(), "preview_answer.html")
+        escaped_answer = html.escape(answer)
+        preview_html = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Answer preview</title>
+    <style>
+      body {{
+        font-family: "Segoe UI", Arial, sans-serif;
+        margin: 24px;
+        background: #111;
+        color: #f5f5f5;
+      }}
+      pre {{
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background: #1d1d1d;
+        padding: 16px;
+        border-radius: 8px;
+      }}
+    </style>
+  </head>
+  <body>
+    <h1>Answer preview</h1>
+    <pre>{escaped_answer}</pre>
+  </body>
+</html>
+"""
+        try:
+            with open(preview_file, "w", encoding="utf-8") as file:
+                file.write(preview_html)
+        except OSError as error:
+            logging.error(f"Failed to write preview file: {error}")
+            self.show_msg("Answer", answer)
+            return
+        webbrowser.open(preview_file)
 
     def open_plugin_folder(self) -> None:
         webbrowser.open(os.getcwd())
