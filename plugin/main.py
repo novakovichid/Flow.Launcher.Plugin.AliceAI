@@ -34,10 +34,15 @@ class AliceAI(Flox):
     def _load_settings(self) -> None:
         self.provider = (self.settings.get("provider") or "openai").lower()
         self.api_key = self.settings.get("api_key")
-        self.model = self.settings.get("model") or "gpt-5-mini"
+        model_setting = self.settings.get("model") or "gpt-5-mini"
+        self.model = self._normalize_model_option(model_setting)
         self.prompt_stop = self.settings.get("prompt_stop")
         self.default_system_prompt = self.settings.get("default_prompt")
+        self.custom_system_prompt = self.settings.get("custom_system_prompt") or ""
         self.save_conversation_setting = self.settings.get("save_conversation")
+        self.request_history_limit = self._parse_int_setting(
+            self.settings.get("request_history_limit"), 10
+        )
         self.log_level = self.settings.get("log_level")
         self.api_endpoint = (
             self.settings.get("api_endpoint")
@@ -56,7 +61,10 @@ class AliceAI(Flox):
         self.yandex_iam_token = self.settings.get("yandex_iam_token")
         self.yandex_folder_id = self.settings.get("yandex_folder_id")
         self.yandex_model = self.settings.get("yandex_model") or "yandexgpt/latest"
-        self.yandex_model_preset = self.settings.get("yandex_model_preset") or ""
+        yandex_model_preset_setting = self.settings.get("yandex_model_preset") or ""
+        self.yandex_model_preset = self._normalize_model_option(
+            yandex_model_preset_setting
+        )
         self.yandex_model_custom = self.settings.get("yandex_model_custom") or ""
         self.yandex_native_endpoint = (
             self.settings.get("yandex_native_endpoint")
@@ -86,6 +94,15 @@ class AliceAI(Flox):
                 prompt, system_message
             )
 
+            self._log_request_history(
+                prompt_keyword,
+                prompt,
+                system_message,
+                answer,
+                prompt_timestamp,
+                answer_timestamp,
+            )
+
             filename = None
             if self.save_conversation_setting:
                 filename = self.save_conversation(
@@ -95,6 +112,13 @@ class AliceAI(Flox):
             if answer:
                 answer = answer.lstrip("\n").lstrip("\n")
                 short_answer = self.ellipsis(answer, 30)
+
+                self.add_item(
+                    title="Preview answer",
+                    subtitle=f"Answer: {short_answer}",
+                    method=self.display_answer,
+                    parameters=[answer],
+                )
 
                 self.add_item(
                     title="Copy to clipboard",
@@ -114,7 +138,10 @@ class AliceAI(Flox):
         else:
             self.add_item(
                 title=f"Type your prompt and end with {self.prompt_stop}",
-                subtitle=f"Current model: {self._current_model_label()}",
+                subtitle=(
+                    f"Current model: {self._current_model_label()} "
+                    f"| Mode: {self._current_request_mode_label()}"
+                ),
             )
         return
 
@@ -379,6 +406,13 @@ class AliceAI(Flox):
             return f"{model_label} (OpenAI-compatible)"
         return f"{model_label} (native)"
 
+    def _current_request_mode_label(self) -> str:
+        if self.provider == "openai":
+            mode = self.openai_request_mode
+        else:
+            mode = self.yandex_request_mode
+        return "sync (blocking)" if mode == "sync" else "async (streaming)"
+
     def _ensure_auth(self) -> bool:
         if self.provider == "openai":
             if not self.api_key:
@@ -474,6 +508,8 @@ class AliceAI(Flox):
         if len(prompt_array) == 1:
             prompt = prompt_array[0]
 
+        system_message = self._apply_custom_system_prompt(system_message)
+
         logging.debug(
             f"""
         Prompt: {prompt}
@@ -483,6 +519,67 @@ class AliceAI(Flox):
         )
 
         return prompt, prompt_keyword, system_message
+
+    def _apply_custom_system_prompt(self, system_message: str) -> str:
+        custom_prompt = self.custom_system_prompt.strip()
+        if not custom_prompt:
+            return system_message
+        if not system_message:
+            return custom_prompt
+        return f"{system_message}\n\n{custom_prompt}"
+
+    def _parse_int_setting(self, value, fallback: int) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return fallback
+        return parsed if parsed > 0 else fallback
+
+    def _normalize_model_option(self, value: str) -> str:
+        if not value:
+            return value
+        if " — " in value:
+            return value.split(" — ", 1)[0].strip()
+        return value.strip()
+
+    def _log_request_history(
+        self,
+        prompt_keyword: str,
+        prompt: str,
+        system_message: str,
+        answer: str,
+        prompt_timestamp: datetime,
+        answer_timestamp: datetime,
+    ) -> None:
+        if self.request_history_limit <= 0:
+            return
+        history_file = os.path.join(os.getcwd(), "request_history.json")
+        entry = {
+            "prompt_keyword": prompt_keyword,
+            "prompt": prompt,
+            "system_message": system_message,
+            "answer": answer,
+            "provider": self.provider,
+            "model": self._current_model_label(),
+            "prompt_timestamp": prompt_timestamp.isoformat(),
+            "answer_timestamp": answer_timestamp.isoformat(),
+        }
+        history = []
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, "r", encoding="utf-8") as file:
+                    history = json.load(file)
+            except (json.JSONDecodeError, OSError):
+                history = []
+        if not isinstance(history, list):
+            history = []
+        history.insert(0, entry)
+        history = history[: self.request_history_limit]
+        try:
+            with open(history_file, "w", encoding="utf-8") as file:
+                json.dump(history, file, ensure_ascii=False, indent=2)
+        except OSError as error:
+            logging.error(f"Failed to write request history: {error}")
 
     def ellipsis(self, string: str, length: int):
         string = string.split("\n", 1)[0]
