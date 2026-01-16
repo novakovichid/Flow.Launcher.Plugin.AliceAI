@@ -3,7 +3,7 @@
     "ActionKeyword": "ai",
     "Name": "AliceAI",
     "Description": "Plugin to use OpenAI and Yandex LLM APIs in Flow Launcher",
-    "Author": "MichielvanBeers",
+    "Author": "@novakovichid",
     "Version": "1.4.1",
     "Language": "python",
     "Website": "https://github.com/MichielvanBeers/Flow.Launcher.Plugin.AliceAI",

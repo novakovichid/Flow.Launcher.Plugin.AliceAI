@@ -18,26 +18,27 @@ body:
     attributes:
       name: model
       label: "Model:"
-      defaultValue: gpt-5-mini
+      defaultValue: gpt-5-mini — быстрый и экономичный вариант GPT-5
       options:
-        - gpt-5.2
-        - gpt-5.2-pro
-        - gpt-5
-        - gpt-5-mini
-        - gpt-5-nano
-        - gpt-4o
-        - gpt-4o-mini
-        - gpt-4.1
-        - gpt-4.1-mini
-        - gpt-4.1-nano
-        - gpt-4-turbo
-        - gpt-4
-        - gpt-3.5-turbo
+        - gpt-5.2 — флагманская модель GPT-5.2
+        - gpt-5.2-pro — максимальная точность GPT-5.2
+        - gpt-5 — базовая модель поколения GPT-5
+        - gpt-5-mini — быстрый и экономичный вариант GPT-5
+        - gpt-5-nano — сверхлёгкая модель GPT-5
+        - gpt-4o — мультимодальная модель GPT-4o
+        - gpt-4o-mini — облегчённая GPT-4o
+        - gpt-4.1 — улучшенная модель GPT-4.1
+        - gpt-4.1-mini — облегчённая GPT-4.1
+        - gpt-4.1-nano — компактная GPT-4.1
+        - gpt-4-turbo — ускоренная GPT-4
+        - gpt-4 — классическая GPT-4
+        - gpt-3.5-turbo — предыдущая генерация GPT
   - type: dropdown
     attributes:
       name: openai_request_mode
-      label: "OpenAI request mode:"
+      label: "OpenAI request mode (blocking/streaming):"
       defaultValue: sync
+      description: sync — блокирующий ответ; async — потоковая выдача по тому же эндпойнту
       options:
         - sync
         - async
@@ -71,17 +72,17 @@ body:
     attributes:
       name: yandex_model_preset
       label: "Yandex model (preset):"
-      defaultValue: yandexgpt/latest
+      defaultValue: yandexgpt/latest — YandexGPT Pro 5 (latest)
       options:
-        - yandexgpt/rc
-        - yandexgpt/latest
-        - yandexgpt-lite
-        - aliceai-llm
-        - qwen3-235b-a22b-fp8/latest
-        - gpt-oss-120b/latest
-        - gpt-oss-20b/latest
-        - gemma-3-27b-it/latest
-        - custom
+        - yandexgpt/rc — YandexGPT Pro 5.1 (release candidate)
+        - yandexgpt/latest — YandexGPT Pro 5 (latest)
+        - yandexgpt-lite — облегчённая YandexGPT
+        - aliceai-llm — модель AliceAI
+        - qwen3-235b-a22b-fp8/latest — Qwen 3 235B FP8
+        - gpt-oss-120b/latest — GPT-OSS 120B
+        - gpt-oss-20b/latest — GPT-OSS 20B
+        - gemma-3-27b-it/latest — Gemma 3 27B Instruct
+        - custom — свой идентификатор модели
   - type: input
     attributes:
       name: yandex_model
@@ -97,8 +98,9 @@ body:
   - type: dropdown
     attributes:
       name: yandex_request_mode
-      label: "Yandex request mode:"
+      label: "Yandex request mode (blocking/streaming):"
       defaultValue: sync
+      description: sync — блокирующий ответ; async — потоковая выдача по тому же эндпойнту
       options:
         - sync
         - async
@@ -114,12 +116,24 @@ body:
       label: "Default system prompt:"
       defaultValue: "normal"
       description: Default key word that will be looked up in the system_messages.csv file
+  - type: input
+    attributes:
+      name: custom_system_prompt
+      label: "Custom system prompt:"
+      defaultValue: ""
+      description: Дополнительная системная подсказка, добавляется к выбранной из CSV
   - type: checkbox
     attributes:
       name: save_conversation
       label: 'Save conversation:'
       defaultValue: "false"
       description: Check to save the conversations for each prompt type in a .txt file in the plugin folder
+  - type: input
+    attributes:
+      name: request_history_limit
+      label: "Request history limit:"
+      defaultValue: "10"
+      description: Максимальное число записей в request_history.json
   - type: dropdown
     attributes:
       name: log_level
