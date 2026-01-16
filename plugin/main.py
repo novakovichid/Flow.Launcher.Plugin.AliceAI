@@ -3,6 +3,7 @@
 import os
 import csv
 import logging
+import time
 from datetime import datetime
 from flox import Flox  # noqa: E402
 import webbrowser  # noqa: E402
@@ -114,13 +115,6 @@ class AliceAI(Flox):
                 short_answer = self.ellipsis(answer, 30)
 
                 self.add_item(
-                    title="Preview answer",
-                    subtitle=f"Answer: {short_answer}",
-                    method=self.display_answer,
-                    parameters=[answer],
-                )
-
-                self.add_item(
                     title="Copy to clipboard",
                     subtitle=f"Answer: {short_answer}",
                     method=self.copy_answer,
@@ -134,6 +128,12 @@ class AliceAI(Flox):
                     parameters=[filename, answer],
                 )
 
+                self.add_item(
+                    title="Preview answer",
+                    subtitle=f"Answer: {short_answer}",
+                    method=self.display_answer,
+                    parameters=[answer],
+                )
 
         else:
             self.add_item(
@@ -185,14 +185,15 @@ class AliceAI(Flox):
     def _send_yandex_native_prompt(
         self, prompt: str, system_message: str
     ) -> Tuple[str, datetime, datetime]:
+        if self.yandex_request_mode == "async":
+            return self._send_yandex_native_async_prompt(prompt, system_message)
         url = self.yandex_native_endpoint
         headers = self._yandex_headers()
-        stream = self.yandex_request_mode == "async"
         model_uri = self._yandex_model_uri()
         body = {
             "modelUri": model_uri,
             "completionOptions": {
-                "stream": stream,
+                "stream": False,
                 "temperature": 0.6,
                 "maxTokens": 2000,
             },
@@ -211,7 +212,6 @@ class AliceAI(Flox):
                 headers=headers,
                 data=json.dumps(body),
                 proxies=PROXIES,
-                stream=stream,
             )
         except UnicodeEncodeError as e:
             logging.error(f"UnicodeEncodeError: {e}")
@@ -220,19 +220,116 @@ class AliceAI(Flox):
         logging.debug(f"Response: {response}")
         answer_timestamp = datetime.now()
         result = ""
-        if stream:
-            result = self._consume_yandex_stream(response)
+        response_json = response.json()
+        if response.ok:
+            alternatives = response_json.get("result", {}).get("alternatives", [])
+            for entry in alternatives:
+                message = entry.get("message", {})
+                result += message.get("text", "")
         else:
+            self._handle_error(response, response_json, "Yandex native")
+
+        return result, prompt_timestamp, answer_timestamp
+
+    def _send_yandex_native_async_prompt(
+        self, prompt: str, system_message: str
+    ) -> Tuple[str, datetime, datetime]:
+        url = self._yandex_async_endpoint(self.yandex_native_endpoint)
+        headers = self._yandex_headers()
+        model_uri = self._yandex_model_uri()
+        body = {
+            "modelUri": model_uri,
+            "completionOptions": {
+                "stream": False,
+                "temperature": 0.6,
+                "maxTokens": 2000,
+            },
+            "messages": [
+                {"role": "system", "text": system_message},
+                {"role": "user", "text": prompt},
+            ],
+        }
+
+        prompt_timestamp = datetime.now()
+        logging.debug(f"Sending Yandex native async request with data: {body}")
+        try:
+            response = requests.request(
+                "POST",
+                url,
+                headers=headers,
+                data=json.dumps(body),
+                proxies=PROXIES,
+            )
+        except UnicodeEncodeError as e:
+            logging.error(f"UnicodeEncodeError: {e}")
+            return "", prompt_timestamp, datetime.now()
+
+        logging.debug(f"Response: {response}")
+        answer_timestamp = datetime.now()
+        if not response.ok:
             response_json = response.json()
-            if response.ok:
-                alternatives = response_json.get("result", {}).get("alternatives", [])
+            self._handle_error(response, response_json, "Yandex native async")
+            return "", prompt_timestamp, answer_timestamp
+
+        response_json = response.json()
+        operation_id = response_json.get("id")
+        if not operation_id:
+            logging.error("Missing operation id in Yandex async response.")
+            return "", prompt_timestamp, answer_timestamp
+
+        return self._poll_yandex_operation(
+            operation_id, headers, prompt_timestamp, answer_timestamp
+        )
+
+    def _poll_yandex_operation(
+        self,
+        operation_id: str,
+        headers: dict,
+        prompt_timestamp: datetime,
+        answer_timestamp: datetime,
+        max_attempts: int = 60,
+        poll_interval_seconds: float = 1.0,
+    ) -> Tuple[str, datetime, datetime]:
+        operation_url = self._yandex_operation_endpoint(operation_id)
+        for _ in range(max_attempts):
+            try:
+                response = requests.get(
+                    operation_url, headers=headers, proxies=PROXIES
+                )
+            except UnicodeEncodeError as e:
+                logging.error(f"UnicodeEncodeError: {e}")
+                return "", prompt_timestamp, datetime.now()
+
+            if not response.ok:
+                response_json = response.json()
+                self._handle_error(response, response_json, "Yandex native async")
+                return "", prompt_timestamp, datetime.now()
+
+            response_json = response.json()
+            if response_json.get("done"):
+                answer_timestamp = datetime.now()
+                response_body = response_json.get("response", {})
+                result = ""
+                alternatives = response_body.get("result", {}).get("alternatives", [])
                 for entry in alternatives:
                     message = entry.get("message", {})
                     result += message.get("text", "")
-            else:
-                self._handle_error(response, response_json, "Yandex native")
+                return result, prompt_timestamp, answer_timestamp
 
-        return result, prompt_timestamp, answer_timestamp
+            time.sleep(poll_interval_seconds)
+
+        logging.error("Timed out waiting for Yandex async operation to complete.")
+        return "", prompt_timestamp, datetime.now()
+
+    def _yandex_async_endpoint(self, endpoint: str) -> str:
+        if endpoint.endswith("completionAsync"):
+            return endpoint
+        if endpoint.endswith("/completion"):
+            return f"{endpoint}Async"
+        return "https://llm.api.cloud.yandex.net/foundationModels/v1/completionAsync"
+
+    def _yandex_operation_endpoint(self, operation_id: str) -> str:
+        return f"https://operation.api.cloud.yandex.net/operations/{operation_id}"
 
     def _send_request(
         self,
@@ -411,7 +508,11 @@ class AliceAI(Flox):
             mode = self.openai_request_mode
         else:
             mode = self.yandex_request_mode
-        return "sync (blocking)" if mode == "sync" else "async (streaming)"
+        if mode == "sync":
+            return "sync (blocking)"
+        if self.provider == "yandex_native":
+            return "async (operation)"
+        return "async (streaming)"
 
     def _ensure_auth(self) -> bool:
         if self.provider == "openai":
@@ -609,12 +710,9 @@ class AliceAI(Flox):
 
     def display_answer(self, answer: str) -> None:
         """
-        Display the answer directly.
+        Display the answer in a modal dialog.
         """
-        self.add_item(
-            title="Answer",
-            subtitle=answer,
-        )
+        self.show_msg("Answer", answer)
 
     def open_plugin_folder(self) -> None:
         webbrowser.open(os.getcwd())
