@@ -130,6 +130,66 @@ body:
       description: Check to save the conversations for each prompt type in a .txt file in the plugin folder
   - type: input
     attributes:
+      name: answer_action_order
+      label: "Answer action order:"
+      defaultValue: "copy,preview,editor"
+      description: "Порядок действий после ответа. Используйте список из: copy, preview, editor."
+  - type: checkbox
+    attributes:
+      name: enable_copy_action
+      label: "Enable copy action:"
+      defaultValue: "true"
+      description: Показывать действие копирования
+  - type: checkbox
+    attributes:
+      name: enable_preview_action
+      label: "Enable preview action:"
+      defaultValue: "true"
+      description: Показывать действие предпросмотра
+  - type: checkbox
+    attributes:
+      name: enable_editor_action
+      label: "Enable editor action:"
+      defaultValue: "true"
+      description: Показывать действие открытия в редакторе
+  - type: dropdown
+    attributes:
+      name: copy_action_mode
+      label: "Copy action mode:"
+      defaultValue: answer_only
+      options:
+        - answer_only
+        - prompt_and_answer
+      description: "answer_only — копировать только ответ; prompt_and_answer — копировать запрос и ответ"
+  - type: dropdown
+    attributes:
+      name: preview_action_mode
+      label: "Preview action mode:"
+      defaultValue: answer_only
+      options:
+        - answer_only
+        - prompt_and_answer
+      description: "answer_only — показывать только ответ; prompt_and_answer — показывать запрос и ответ"
+  - type: dropdown
+    attributes:
+      name: editor_action_mode
+      label: "Editor action mode:"
+      defaultValue: answer_only
+      options:
+        - answer_only
+        - prompt_and_answer
+      description: "answer_only — открыть только ответ; prompt_and_answer — открыть запрос и ответ"
+  - type: dropdown
+    attributes:
+      name: editor_open_mode
+      label: "Editor open mode:"
+      defaultValue: saved_if_available
+      options:
+        - saved_if_available
+        - always_temp
+      description: "saved_if_available — использовать сохранённый файл; always_temp — всегда временный файл"
+  - type: input
+    attributes:
       name: request_history_limit
       label: "Request history limit:"
       defaultValue: "10"
