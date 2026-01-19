@@ -9,7 +9,6 @@ from flox import Flox  # noqa: E402
 import webbrowser  # noqa: E402
 import requests  # noqa: E402
 import json  # noqa: E402
-import html  # noqa: E402
 import pyperclip  # noqa: E402
 from typing import Tuple, Optional
 
@@ -738,6 +737,8 @@ class AliceAI(Flox):
                 "method": self.display_answer,
                 "parameters": [action_text["preview"]],
                 "enabled": self.enable_preview_action,
+                "dont_hide": True,
+                "Preview": {"Description": action_text["preview"]},
             },
             "editor": {
                 "title": "Open in text editor",
@@ -817,47 +818,9 @@ class AliceAI(Flox):
 
     def display_answer(self, text: str) -> None:
         """
-        Display the answer in a dedicated preview window.
+        Display the answer in Flow Launcher preview panel.
         """
-        if not text:
-            return
-        preview_file = os.path.join(os.getcwd(), "preview_answer.html")
-        escaped_answer = html.escape(text)
-        preview_html = f"""<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Answer preview</title>
-    <style>
-      body {{
-        font-family: "Segoe UI", Arial, sans-serif;
-        margin: 24px;
-        background: #111;
-        color: #f5f5f5;
-      }}
-      pre {{
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        background: #1d1d1d;
-        padding: 16px;
-        border-radius: 8px;
-      }}
-    </style>
-  </head>
-  <body>
-    <h1>Answer preview</h1>
-    <pre>{escaped_answer}</pre>
-  </body>
-</html>
-"""
-        try:
-            with open(preview_file, "w", encoding="utf-8") as file:
-                file.write(preview_html)
-        except OSError as error:
-            logging.error(f"Failed to write preview file: {error}")
-            self.show_msg("Answer", text)
-            return
-        webbrowser.open(preview_file)
+        return
 
     def open_plugin_folder(self) -> None:
         webbrowser.open(os.getcwd())
