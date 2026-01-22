@@ -818,16 +818,11 @@ class AliceAI(Flox):
 
     def display_answer(self, text: str) -> None:
         """
-        Display the answer in Flow Launcher preview panel.
+        Display the answer in Flow Launcher preview dialog.
         """
         if not text:
             return
-        self.add_item(
-            title="Answer preview",
-            subtitle="Preview panel",
-            dont_hide=True,
-            Preview={"Description": text},
-        )
+        self.show_msg("Answer preview", text)
         return
 
     def open_plugin_folder(self) -> None:
