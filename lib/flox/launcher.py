@@ -110,11 +110,23 @@ class Launcher(object):
         """
         print(json.dumps({"method": f"{self.api}.ShowApp","parameters":[]}))
 
-    def show_msg(self, title, sub_title, ico_path=""):
+    def show_msg(self, title, sub_title, ico_path="", use_main_window_as_owner=True):
         """
         show messagebox
         """
-        print(json.dumps({"method": f"{self.api}.ShowMsg","parameters":[title,sub_title,ico_path]}))
+        print(
+            json.dumps(
+                {
+                    "method": f"{self.api}.ShowMsg",
+                    "parameters": [
+                        title,
+                        sub_title,
+                        ico_path,
+                        use_main_window_as_owner,
+                    ],
+                }
+            )
+        )
 
     def open_setting_dialog(self):
         """
