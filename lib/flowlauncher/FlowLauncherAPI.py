@@ -50,13 +50,19 @@ class FlowLauncherAPI:
             "parameters": []}))
 
     @classmethod
-    def show_msg(cls, title: str, sub_title: str, ico_path: str = ""):
+    def show_msg(
+        cls,
+        title: str,
+        sub_title: str,
+        ico_path: str = "",
+        use_main_window_as_owner: bool = True,
+    ):
         """
         show messagebox
         """
         print(dumps({
             "method": "Flow.Launcher.ShowMsg",
-            "parameters": [title, sub_title, ico_path]}))
+            "parameters": [title, sub_title, ico_path, use_main_window_as_owner]}))
 
     @classmethod
     def open_setting_dialog(cls):

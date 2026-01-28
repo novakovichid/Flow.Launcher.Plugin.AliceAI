@@ -822,7 +822,7 @@ class AliceAI(Flox):
         """
         if not text:
             return
-        self.show_msg("Answer preview", text)
+        self.show_msg("Answer preview", text, use_main_window_as_owner=True)
         return
 
     def open_plugin_folder(self) -> None:
